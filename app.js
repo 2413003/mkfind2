@@ -179,6 +179,13 @@ boot();
 
 async function boot() {
   await locateUser();
+  // Centre main map on user if they are within MK (≤ 20 km of centre)
+  if (state.userLoc) {
+    const distToMk = haversine(state.userLoc[0], state.userLoc[1], MK_CENTER[0], MK_CENTER[1]);
+    if (distToMk <= 20) {
+      map.setView(state.userLoc, 13);
+    }
+  }
   await loadReports();
   paint();
   applyIncomingLink();
@@ -392,7 +399,7 @@ function renderList(rows) {
           <div class="field-row">
             <button class="media-open contact-open" data-contact-id="${clean(String(row.id))}" type="button">Contact</button>
             <button class="media-open share-open" data-share-id="${clean(String(row.id))}" type="button">Share</button>
-            <button class="media-open resolve-open" data-resolve-id="${clean(String(row.id))}" type="button">Resolve</button>
+            <button class="media-open resolve-open" data-resolve-id="${clean(String(row.id))}" type="button">Found</button>
             <button class="media-open flag-open" data-flag-id="${clean(String(row.id))}" type="button">Report</button>
           </div>
         </li>
@@ -580,7 +587,7 @@ function popupMarkup(row) {
   const mediaBtn = media.length
     ? `<br><button type="button" class="media-open popup-media-open" data-popup-media-id="${clean(String(row.id))}">Media</button>`
     : "";
-  return `<strong>${clean(row.title)}</strong><br>${clean(row.detail || "")}${contactText ? `<br>${clean(contactText)}` : ""}<br>${clean(row.post_type || "lost")} · ${clean(row.status || "open")}<br>${row.distanceKm.toFixed(1)} km${mediaBtn}<br><button type="button" class="media-open popup-contact-open" data-popup-contact-id="${clean(String(row.id))}">Contact</button> <button type="button" class="media-open popup-share-open" data-popup-share-id="${clean(String(row.id))}">Share</button> <button type="button" class="media-open popup-resolve-open" data-popup-resolve-id="${clean(String(row.id))}">Resolve</button> <button type="button" class="media-open popup-flag-open" data-popup-flag-id="${clean(String(row.id))}">Report</button>`;
+  return `<strong>${clean(row.title)}</strong><br>${clean(row.detail || "")}${contactText ? `<br>${clean(contactText)}` : ""}<br>${clean(row.post_type || "lost")} · ${clean(row.status || "open")}<br>${row.distanceKm.toFixed(1)} km${mediaBtn}<br><button type="button" class="media-open popup-contact-open" data-popup-contact-id="${clean(String(row.id))}">Contact</button> <button type="button" class="media-open popup-share-open" data-popup-share-id="${clean(String(row.id))}">Share</button> <button type="button" class="media-open popup-resolve-open" data-popup-resolve-id="${clean(String(row.id))}">Found</button> <button type="button" class="media-open popup-flag-open" data-popup-flag-id="${clean(String(row.id))}">Report</button>`;
 }
 
 function getMediaUrls(row) {
@@ -745,7 +752,7 @@ async function contactListing(row) {
 
 async function markResolved(row) {
   if ((row.status || "open") === "resolved") return;
-  const ok = window.confirm("Mark this listing as resolved?");
+  const ok = window.confirm("Mark this listing as found / resolved?");
   if (!ok) return;
   if (!supabase) {
     row.status = "resolved";
@@ -1155,6 +1162,25 @@ els.composeForm.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const title = els.titleInput.value.trim();
   if (!title || state.compose.lat == null || state.compose.lng == null) return;
+
+  // Contact validation
+  const contactValue = els.contactValueInput.value.trim();
+  const contactMethod = els.contactMethodInput.value;
+  if (contactValue) {
+    if (contactMethod === "email") {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactValue)) {
+        showToast("Enter a valid email address");
+        els.contactValueInput.focus();
+        return;
+      }
+    } else if (contactMethod === "phone" || contactMethod === "whatsapp") {
+      if (!/^[\d\s\+\-\(\)]{7,}$/.test(contactValue)) {
+        showToast("Enter a valid phone number");
+        els.contactValueInput.focus();
+        return;
+      }
+    }
+  }
 
   els.saveComposeBtn.disabled = true;
   const initialSaveText = els.saveComposeBtn.textContent;
