@@ -45,8 +45,10 @@ const FALLBACK = [
 const state = {
   userLoc: null,
   radiusKm: Number(localStorage.getItem("mkfind.radius") || 8),
+  feedType: localStorage.getItem("mkfind.feedType") || "lost",
   kind: localStorage.getItem("mkfind.kind") || "all",
   status: localStorage.getItem("mkfind.status") || "open",
+  sort: localStorage.getItem("mkfind.sort") || "nearest",
   rows: [],
   markers: new Map(),
   selectedId: null,
@@ -106,11 +108,21 @@ const userMarker = L.circleMarker(MK_CENTER, {
 let radiusCircle = null;
 
 const els = {
+  brandTitle: document.getElementById("brandTitle"),
   results: document.getElementById("results"),
   radius: document.getElementById("radius"),
   radiusValue: document.getElementById("radiusValue"),
+  filtersSummary: document.getElementById("filtersSummary"),
+  sortSummary: document.getElementById("sortSummary"),
+  filtersPanel: document.getElementById("filtersPanel"),
+  sortPanel: document.getElementById("sortPanel"),
+  controlsBackdrop: document.getElementById("controlsBackdrop"),
+  toggleFiltersBtn: document.getElementById("toggleFiltersBtn"),
+  toggleSortBtn: document.getElementById("toggleSortBtn"),
   chips: [...document.querySelectorAll(".chip")],
+  postFilterChips: [...document.querySelectorAll(".post-filter-chip")],
   statusChips: [...document.querySelectorAll(".status-chip")],
+  sortChips: [...document.querySelectorAll(".sort-chip")],
   centerBtn: document.getElementById("centerBtn"),
   addBtn: document.getElementById("addBtn"),
   refreshBtn: document.getElementById("refreshBtn"),
@@ -142,8 +154,13 @@ const els = {
 
 els.radius.value = String(state.radiusKm);
 setRadiusLabel();
+setPostFilterChipState();
 setChipState();
 setStatusChipState();
+setSortChipState();
+setFilterSummary();
+setSortSummary();
+setBrandTitle();
 els.notifyBtn.classList.toggle("active", localStorage.getItem("mkfind.notifications") === "on");
 
 const supabase = state.hasSupabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -246,15 +263,22 @@ function paint() {
 
 function filteredRows() {
   const [lat, lng] = state.userLoc || MK_CENTER;
-  return state.rows
+  const rows = state.rows
+    .filter((row) => (row.post_type || "lost") === state.feedType)
     .filter((row) => state.kind === "all" || row.kind === state.kind)
     .filter((row) => (state.status === "all" ? true : (row.status || "open") === state.status))
     .map((row) => ({
       ...row,
       distanceKm: haversine(lat, lng, Number(row.lat), Number(row.lng)),
     }))
-    .filter((row) => row.distanceKm <= state.radiusKm)
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+    .filter((row) => row.distanceKm <= state.radiusKm);
+
+  if (state.sort === "latest") {
+    rows.sort((a, b) => new Date(b.seen_at).getTime() - new Date(a.seen_at).getTime());
+  } else {
+    rows.sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+  return rows;
 }
 
 function renderMarkers(rows) {
@@ -435,10 +459,43 @@ function setChipState() {
   });
 }
 
+function setPostFilterChipState() {
+  els.postFilterChips.forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.feedType === state.feedType);
+  });
+}
+
 function setStatusChipState() {
   els.statusChips.forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.status === state.status);
   });
+}
+
+function setSortChipState() {
+  els.sortChips.forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.sort === state.sort);
+  });
+}
+
+function setFilterSummary() {
+  const kindLabel = state.kind === "all" ? "All" : state.kind[0].toUpperCase() + state.kind.slice(1);
+  const statusLabel = state.status === "all" ? "All status" : state.status[0].toUpperCase() + state.status.slice(1);
+  els.filtersSummary.textContent = `${kindLabel} · ${statusLabel} · ${state.radiusKm} km`;
+}
+
+function setSortSummary() {
+  els.sortSummary.textContent = state.sort === "latest" ? "Latest" : "Nearest";
+}
+
+function setBrandTitle() {
+  const mode = state.feedType === "found" ? "Found" : "Lost";
+  els.brandTitle.textContent = `MK Find · ${mode}`;
+}
+
+function closeControlPanels() {
+  els.filtersPanel.classList.add("hidden");
+  els.sortPanel.classList.add("hidden");
+  els.controlsBackdrop.classList.add("hidden");
 }
 
 function connectRealtime() {
@@ -883,6 +940,7 @@ els.radius.addEventListener("input", (e) => {
   state.radiusKm = Number(e.target.value);
   localStorage.setItem("mkfind.radius", String(state.radiusKm));
   setRadiusLabel();
+  setFilterSummary();
   paint();
 });
 
@@ -892,6 +950,17 @@ els.chips.forEach((chip) => {
     state.kind = chip.dataset.type;
     localStorage.setItem("mkfind.kind", state.kind);
     setChipState();
+    setFilterSummary();
+    paint();
+  });
+});
+
+els.postFilterChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    state.feedType = chip.dataset.feedType;
+    localStorage.setItem("mkfind.feedType", state.feedType);
+    setPostFilterChipState();
+    setBrandTitle();
     paint();
   });
 });
@@ -901,9 +970,38 @@ els.statusChips.forEach((chip) => {
     state.status = chip.dataset.status;
     localStorage.setItem("mkfind.status", state.status);
     setStatusChipState();
+    setFilterSummary();
     paint();
   });
 });
+
+els.sortChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    state.sort = chip.dataset.sort;
+    localStorage.setItem("mkfind.sort", state.sort);
+    setSortChipState();
+    setSortSummary();
+    paint();
+  });
+});
+
+els.toggleFiltersBtn.addEventListener("click", () => {
+  const opening = els.filtersPanel.classList.contains("hidden");
+  els.filtersPanel.classList.toggle("hidden");
+  if (opening) els.sortPanel.classList.add("hidden");
+  const anyOpen = !els.filtersPanel.classList.contains("hidden") || !els.sortPanel.classList.contains("hidden");
+  els.controlsBackdrop.classList.toggle("hidden", !anyOpen);
+});
+
+els.toggleSortBtn.addEventListener("click", () => {
+  const opening = els.sortPanel.classList.contains("hidden");
+  els.sortPanel.classList.toggle("hidden");
+  if (opening) els.filtersPanel.classList.add("hidden");
+  const anyOpen = !els.filtersPanel.classList.contains("hidden") || !els.sortPanel.classList.contains("hidden");
+  els.controlsBackdrop.classList.toggle("hidden", !anyOpen);
+});
+
+els.controlsBackdrop.addEventListener("click", closeControlPanels);
 
 els.centerBtn.addEventListener("click", () => {
   const loc = state.userLoc || MK_CENTER;
@@ -1036,6 +1134,7 @@ map.on("popupopen", () => {
 });
 
 document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") closeControlPanels();
   if (els.galleryModal.classList.contains("hidden")) return;
   if (ev.key === "Escape") closeGallery();
   if (ev.key === "ArrowLeft") stepGallery(-1);

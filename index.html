@@ -23,7 +23,7 @@
       <header class="topbar glass">
         <div class="brand">
           <div class="logo-dot"></div>
-          <h1>MK Find</h1>
+          <h1 id="brandTitle">MK Find</h1>
         </div>
         <button id="notifyBtn" class="icon-btn" type="button" aria-label="Notifications">
           <span class="icon">🔔</span>
@@ -31,14 +31,39 @@
       </header>
 
       <section class="controls glass">
-        <div class="chip-row">
-          <button class="chip active" data-type="all" type="button">All</button>
-          <button class="chip" data-type="item" type="button">Items</button>
-          <button class="chip" data-type="pet" type="button">Pets</button>
-          <button class="chip" data-type="person" type="button">People</button>
-          <button class="chip status-chip active" data-status="open" type="button">Open</button>
-          <button class="chip status-chip" data-status="all" type="button">All status</button>
-          <button class="chip status-chip" data-status="resolved" type="button">Resolved</button>
+        <div id="controlsBackdrop" class="controls-backdrop hidden"></div>
+        <div class="control-row">
+          <div class="chip-row">
+            <button class="chip post-filter-chip active" data-feed-type="lost" type="button">Lost</button>
+            <button class="chip post-filter-chip" data-feed-type="found" type="button">Found</button>
+          </div>
+          <div class="chip-row">
+            <button id="toggleFiltersBtn" class="chip ghost-chip" type="button">Filters</button>
+            <button id="toggleSortBtn" class="chip ghost-chip" type="button">Sort</button>
+          </div>
+        </div>
+        <div class="summary-row">
+          <span id="filtersSummary" class="summary-pill">All · Open · 8 km</span>
+          <span id="sortSummary" class="summary-pill">Nearest</span>
+        </div>
+        <div id="filtersPanel" class="expand-panel hidden">
+          <div class="chip-row">
+            <button class="chip active" data-type="all" type="button">All</button>
+            <button class="chip" data-type="item" type="button">Items</button>
+            <button class="chip" data-type="pet" type="button">Pets</button>
+            <button class="chip" data-type="person" type="button">People</button>
+          </div>
+          <div class="chip-row">
+            <button class="chip status-chip active" data-status="open" type="button">Open</button>
+            <button class="chip status-chip" data-status="all" type="button">All status</button>
+            <button class="chip status-chip" data-status="resolved" type="button">Resolved</button>
+          </div>
+        </div>
+        <div id="sortPanel" class="expand-panel hidden">
+          <div class="chip-row">
+            <button class="chip sort-chip active" data-sort="nearest" type="button">Nearest</button>
+            <button class="chip sort-chip" data-sort="latest" type="button">Latest</button>
+          </div>
         </div>
         <div class="radius-wrap">
           <label for="radius">Radius</label>

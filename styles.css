@@ -71,17 +71,81 @@ body {
 }
 
 .controls {
+  position: relative;
   border-radius: var(--radius);
   padding: 10px;
-  display: grid;
-  grid-template-columns: 1fr minmax(230px, 360px);
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+}
+
+.controls-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 20;
+}
+
+.controls-backdrop.hidden {
+  display: none;
+}
+
+.control-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .chip-row {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.ghost-chip {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.summary-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.summary-pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: #fff;
+}
+
+.expand-panel {
+  position: absolute;
+  right: 10px;
+  top: calc(100% + 8px);
+  min-width: min(460px, calc(100vw - 36px));
+  max-width: min(560px, calc(100vw - 36px));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 20px 45px rgba(16, 22, 36, 0.18);
+  z-index: 30;
+}
+
+#sortPanel {
+  min-width: 210px;
+  max-width: 260px;
+}
+
+.expand-panel.hidden {
+  display: none;
 }
 
 .chip {
@@ -563,7 +627,6 @@ body {
 }
 
 @media (max-width: 980px) {
-  .controls,
   .content {
     grid-template-columns: 1fr;
   }
@@ -575,5 +638,17 @@ body {
   .fab-stack {
     right: 18px;
     bottom: 18px;
+  }
+
+  .expand-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: auto;
+    bottom: 12px;
+    max-width: none;
+    min-width: 0;
+    border-radius: 16px;
+    z-index: 1250;
   }
 }
