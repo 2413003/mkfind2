@@ -47,6 +47,7 @@ const state = {
 const map = L.map("map", {
   zoomControl: false,
   preferCanvas: true,
+  attributionControl: false,
 }).setView(MK_CENTER, 13);
 
 L.control
@@ -55,17 +56,25 @@ L.control
   })
   .addTo(map);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
   maxZoom: 19,
-  attribution: "&copy; OpenStreetMap",
+  subdomains: "abcd",
 }).addTo(map);
 
+const userMarkerHalo = L.circleMarker(MK_CENTER, {
+  radius: 18,
+  fillColor: "#1a73e8",
+  color: "#1a73e8",
+  weight: 0,
+  fillOpacity: 0.14,
+});
+
 const userMarker = L.circleMarker(MK_CENTER, {
-  radius: 9,
+  radius: 7,
   fillColor: "#1a73e8",
   color: "#ffffff",
-  weight: 3,
-  fillOpacity: 0.95,
+  weight: 2.5,
+  fillOpacity: 1,
 });
 let radiusCircle = null;
 
@@ -151,6 +160,7 @@ async function loadReports() {
 
 function paint() {
   const loc = state.userLoc || MK_CENTER;
+  userMarkerHalo.setLatLng(loc).addTo(map);
   userMarker.setLatLng(loc).addTo(map);
 
   if (radiusCircle) map.removeLayer(radiusCircle);
@@ -190,15 +200,10 @@ function renderMarkers(rows) {
 
   rows.forEach((row) => {
     const key = String(row.id);
-    const color = row.kind === "pet" ? "#20a464" : row.kind === "person" ? "#ff8b2d" : "#4f7cff";
     let marker = state.markers.get(key);
     if (!marker) {
-      marker = L.circleMarker([row.lat, row.lng], {
-        radius: 8,
-        color: "#fff",
-        weight: 2,
-        fillColor: color,
-        fillOpacity: 0.95,
+      marker = L.marker([row.lat, row.lng], {
+        icon: createReportIcon(row.kind),
       }).addTo(map);
 
       marker.on("click", () => {
@@ -209,11 +214,40 @@ function renderMarkers(rows) {
       state.markers.set(key, marker);
     } else {
       marker.setLatLng([row.lat, row.lng]);
+      marker.setIcon(createReportIcon(row.kind));
     }
 
     marker.bindPopup(
       `<strong>${clean(row.title)}</strong><br>${clean(row.detail || "")}<br>${row.distanceKm.toFixed(1)} km`
     );
+  });
+}
+
+function createReportIcon(kind) {
+  if (kind === "pet") {
+    return L.divIcon({
+      className: "report-pin-shell",
+      html: '<span class="report-pin report-pin-pet">🐾</span>',
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+      popupAnchor: [0, -14],
+    });
+  }
+  if (kind === "person") {
+    return L.divIcon({
+      className: "report-pin-shell",
+      html: '<span class="report-pin report-pin-person">🧍</span>',
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+      popupAnchor: [0, -14],
+    });
+  }
+  return L.divIcon({
+    className: "report-pin-shell",
+    html: '<span class="report-pin report-pin-item">🎒</span>',
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+    popupAnchor: [0, -14],
   });
 }
 

@@ -138,6 +138,11 @@ body {
 
 .map {
   min-height: 62vh;
+  filter: saturate(1.02) contrast(1.01);
+}
+
+.leaflet-container {
+  background: linear-gradient(180deg, #eef3f9, #f7f9fc);
 }
 
 .list-panel {
@@ -256,6 +261,54 @@ body {
 .leaflet-popup-content-wrapper {
   border-radius: 14px;
   font-family: "Sora", sans-serif;
+  box-shadow: 0 14px 28px rgba(16, 22, 36, 0.12);
+}
+
+.leaflet-popup-tip {
+  box-shadow: none;
+}
+
+.leaflet-control-zoom {
+  border: 0 !important;
+  box-shadow: 0 8px 18px rgba(16, 22, 36, 0.14) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.leaflet-control-zoom a {
+  border: 0 !important;
+  width: 34px !important;
+  height: 34px !important;
+  line-height: 34px !important;
+  color: #2b3344 !important;
+}
+
+.report-pin-shell {
+  background: transparent;
+  border: 0;
+}
+
+.report-pin {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1.5px solid #fff;
+  box-shadow: 0 8px 16px rgba(16, 22, 36, 0.2);
+  font-size: 15px;
+}
+
+.report-pin-item {
+  background: #2b6be8;
+}
+
+.report-pin-pet {
+  background: #00a66a;
+}
+
+.report-pin-person {
+  background: #f08a24;
 }
 
 .empty {
