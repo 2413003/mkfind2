@@ -430,7 +430,7 @@ function renderList(rows) {
     });
   });
 
-  // 3-dot menu toggle
+  // 3-dot menu toggle — menus are position:fixed so coords must be set from getBoundingClientRect
   [...document.querySelectorAll(".card-dots-btn")].forEach((btn) => {
     btn.addEventListener("click", (ev) => {
       ev.stopPropagation();
@@ -439,9 +439,27 @@ function renderList(rows) {
       if (!menu) return;
       const isOpen = !menu.classList.contains("hidden");
       document.querySelectorAll(".card-menu:not(.hidden)").forEach((m) => m.classList.add("hidden"));
-      if (!isOpen) menu.classList.remove("hidden");
+      if (!isOpen) {
+        const rect = btn.getBoundingClientRect();
+        menu.style.right = `${window.innerWidth - rect.right}px`;
+        menu.style.top = "";
+        menu.classList.remove("hidden");
+        const menuH = menu.offsetHeight;
+        const topAbove = rect.top - menuH - 6;
+        menu.style.top = topAbove >= 8 ? `${topAbove}px` : `${rect.bottom + 6}px`;
+      }
     });
   });
+
+  // Close card menus when clicking anywhere outside them
+  document.addEventListener("click", (ev) => {
+    if (!ev.target.closest(".card-menu") && !ev.target.closest(".card-dots-btn")) {
+      closeAllCardMenus();
+    }
+  }, { capture: true });
+
+  // Close card menus when the results list scrolls (menu would drift from its button)
+  els.results.addEventListener("scroll", closeAllCardMenus, { passive: true });
 
   // Card menu item handlers
   [...document.querySelectorAll(".card-menu-item.share-open")].forEach((btn) => {
