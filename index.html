@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MK Find</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar glass">
+        <div class="brand">
+          <div class="logo-dot"></div>
+          <h1>MK Find</h1>
+        </div>
+        <button id="notifyBtn" class="icon-btn" type="button" aria-label="Notifications">
+          <span class="icon">🔔</span>
+        </button>
+      </header>
+
+      <section class="controls glass">
+        <div class="chip-row">
+          <button class="chip active" data-type="all" type="button">All</button>
+          <button class="chip" data-type="item" type="button">Items</button>
+          <button class="chip" data-type="pet" type="button">Pets</button>
+          <button class="chip" data-type="person" type="button">People</button>
+        </div>
+        <div class="radius-wrap">
+          <label for="radius">Radius</label>
+          <input id="radius" type="range" min="1" max="30" value="8" />
+          <output id="radiusValue" for="radius">8 km</output>
+        </div>
+      </section>
+
+      <section class="content">
+        <div id="map" class="card map"></div>
+        <aside class="card list-panel">
+          <div class="list-head">
+            <h2>Near</h2>
+            <button id="refreshBtn" class="icon-btn ghost" type="button" aria-label="Refresh">
+              <span class="icon">↻</span>
+            </button>
+          </div>
+          <ul id="results" class="results"></ul>
+        </aside>
+      </section>
+
+      <button id="centerBtn" class="fab" type="button" aria-label="Locate">
+        ◎
+      </button>
+    </main>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
