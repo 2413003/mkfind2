@@ -54,17 +54,17 @@
             <button class="chip status-chip" data-status="all" type="button">All status</button>
             <button class="chip status-chip" data-status="resolved" type="button">Resolved</button>
           </div>
+          <div class="radius-wrap">
+            <label for="radius">Radius</label>
+            <input id="radius" type="range" min="1" max="30" value="8" />
+            <output id="radiusValue" for="radius">8 km</output>
+          </div>
         </div>
         <div id="sortPanel" class="expand-panel hidden">
           <div class="chip-row">
             <button class="chip sort-chip active" data-sort="nearest" type="button">Nearest</button>
             <button class="chip sort-chip" data-sort="latest" type="button">Latest</button>
           </div>
-        </div>
-        <div class="radius-wrap">
-          <label for="radius">Radius</label>
-          <input id="radius" type="range" min="1" max="30" value="8" />
-          <output id="radiusValue" for="radius">8 km</output>
         </div>
       </section>
 

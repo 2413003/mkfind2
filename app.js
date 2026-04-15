@@ -929,6 +929,10 @@ els.radius.addEventListener("input", (e) => {
   paint();
 });
 
+els.radius.addEventListener("change", () => {
+  closeControlPanels();
+});
+
 els.chips.forEach((chip) => {
   if (!chip.dataset.type) return;
   chip.addEventListener("click", () => {
@@ -936,6 +940,7 @@ els.chips.forEach((chip) => {
     localStorage.setItem("mkfind.kind", state.kind);
     setChipState();
     paint();
+    closeControlPanels();
   });
 });
 
@@ -946,6 +951,7 @@ els.postFilterChips.forEach((chip) => {
     setPostFilterChipState();
     setBrandTitle();
     paint();
+    closeControlPanels();
   });
 });
 
@@ -955,6 +961,7 @@ els.statusChips.forEach((chip) => {
     localStorage.setItem("mkfind.status", state.status);
     setStatusChipState();
     paint();
+    closeControlPanels();
   });
 });
 
@@ -964,6 +971,7 @@ els.sortChips.forEach((chip) => {
     localStorage.setItem("mkfind.sort", state.sort);
     setSortChipState();
     paint();
+    closeControlPanels();
   });
 });
 
