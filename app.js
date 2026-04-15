@@ -864,6 +864,7 @@ function openCompose() {
 function closeCompose() {
   els.composeModal.classList.add("hidden");
   els.composeModal.setAttribute("aria-hidden", "true");
+  clearFieldErrors();
 }
 
 function setComposeKindUI() {
@@ -1019,6 +1020,16 @@ function notifyIfEnabled(row) {
   });
 }
 
+els.titleInput.addEventListener("input", () => {
+  document.getElementById("ferr-titleInput")?.remove();
+  els.titleInput.classList.remove("invalid");
+});
+
+els.contactValueInput.addEventListener("input", () => {
+  document.getElementById("ferr-contactValueInput")?.remove();
+  els.contactValueInput.classList.remove("invalid");
+});
+
 els.radius.addEventListener("input", (e) => {
   state.radiusKm = Number(e.target.value);
   localStorage.setItem("mkfind.radius", String(state.radiusKm));
@@ -1158,29 +1169,60 @@ els.findAddressBtn.addEventListener("click", async () => {
   }
 });
 
+function showFieldError(inputEl, message, anchorEl) {
+  const anchor = anchorEl || inputEl;
+  const errId = `ferr-${inputEl.id}`;
+  document.getElementById(errId)?.remove();
+  inputEl.classList.add("invalid");
+  const span = document.createElement("span");
+  span.className = "field-error";
+  span.id = errId;
+  span.textContent = message;
+  anchor.insertAdjacentElement("afterend", span);
+}
+
+function clearFieldErrors() {
+  document.querySelectorAll(".field-error").forEach((el) => el.remove());
+  document.querySelectorAll(".field-input.invalid").forEach((el) => el.classList.remove("invalid"));
+  els.pickedMeta.style.color = "";
+}
+
 els.composeForm.addEventListener("submit", async (ev) => {
   ev.preventDefault();
-  const title = els.titleInput.value.trim();
-  if (!title || state.compose.lat == null || state.compose.lng == null) return;
+  clearFieldErrors();
 
-  // Contact validation
+  let hasErrors = false;
+
+  const title = els.titleInput.value.trim();
+  if (!title) {
+    showFieldError(els.titleInput, "Title is required");
+    hasErrors = true;
+  }
+
+  if (state.compose.lat == null || state.compose.lng == null) {
+    els.pickedMeta.textContent = "Tap the map to set a location";
+    els.pickedMeta.style.color = "#d32f2f";
+    hasErrors = true;
+  }
+
   const contactValue = els.contactValueInput.value.trim();
   const contactMethod = els.contactMethodInput.value;
   if (contactValue) {
+    const contactRow = els.contactValueInput.closest(".field-row");
     if (contactMethod === "email") {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactValue)) {
-        showToast("Enter a valid email address");
-        els.contactValueInput.focus();
-        return;
+        showFieldError(els.contactValueInput, "Enter a valid email address", contactRow);
+        hasErrors = true;
       }
     } else if (contactMethod === "phone" || contactMethod === "whatsapp") {
       if (!/^[\d\s\+\-\(\)]{7,}$/.test(contactValue)) {
-        showToast("Enter a valid phone number");
-        els.contactValueInput.focus();
-        return;
+        showFieldError(els.contactValueInput, "Enter a valid phone number (digits only, min 7)", contactRow);
+        hasErrors = true;
       }
     }
   }
+
+  if (hasErrors) return;
 
   els.saveComposeBtn.disabled = true;
   const initialSaveText = els.saveComposeBtn.textContent;
