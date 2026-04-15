@@ -25,6 +25,7 @@ body {
 }
 
 .app-shell {
+  isolation: isolate;
   max-width: 1320px;
   margin: 0 auto;
   min-height: 100dvh;
@@ -72,7 +73,7 @@ body {
 
 .controls {
   position: relative;
-  z-index: 1200;
+  z-index: 4000;
   overflow: visible;
   border-radius: var(--radius);
   padding: 10px;
@@ -85,7 +86,7 @@ body {
   position: fixed;
   inset: 0;
   background: transparent;
-  z-index: 20;
+  z-index: 4500;
 }
 
 .controls-backdrop.hidden {
@@ -110,9 +111,9 @@ body {
 }
 
 .expand-panel {
-  position: absolute;
-  right: 10px;
-  top: calc(100% + 8px);
+  position: fixed;
+  right: 22px;
+  top: 128px;
   min-width: min(460px, calc(100vw - 36px));
   max-width: min(560px, calc(100vw - 36px));
   border: 1px solid var(--line);
@@ -123,7 +124,7 @@ body {
   background: rgba(255, 255, 255, 0.97);
   backdrop-filter: blur(8px);
   box-shadow: 0 20px 45px rgba(16, 22, 36, 0.18);
-  z-index: 1300;
+  z-index: 5000;
 }
 
 #sortPanel {
@@ -179,6 +180,19 @@ body {
   display: grid;
   gap: 14px;
   grid-template-columns: 1fr minmax(320px, 400px);
+}
+
+.map,
+.list-panel,
+.result {
+  position: relative;
+  z-index: 1;
+}
+
+.leaflet-container,
+.leaflet-pane,
+.leaflet-control {
+  z-index: 1 !important;
 }
 
 .card {
