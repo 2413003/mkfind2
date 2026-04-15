@@ -392,11 +392,14 @@ function renderList(rows) {
           <div class="title">${clean(row.title)}</div>
           <div class="meta">${clean(row.detail || "")} · ${ago}${contactText ? ` · ${clean(contactText)}` : ""}</div>
           ${mediaBlock}
-          <div class="field-row">
-            <button class="media-open contact-open" data-contact-id="${clean(String(row.id))}" type="button">Contact</button>
-            <button class="media-open share-open" data-share-id="${clean(String(row.id))}" type="button">Share</button>
-            <button class="media-open resolve-open" data-resolve-id="${clean(String(row.id))}" type="button">Found</button>
-            <button class="media-open flag-open" data-flag-id="${clean(String(row.id))}" type="button">Report</button>
+          <div class="card-menu-wrap">
+            <button class="card-dots-btn" data-dots-id="${clean(String(row.id))}" type="button" aria-label="Options">⋯</button>
+            <div class="card-menu hidden" data-menu-id="${clean(String(row.id))}">
+              <button class="card-menu-item contact-open" data-contact-id="${clean(String(row.id))}" type="button">Contact</button>
+              <button class="card-menu-item share-open" data-share-id="${clean(String(row.id))}" type="button">Share</button>
+              <button class="card-menu-item resolve-open" data-resolve-id="${clean(String(row.id))}" type="button">Mark as found</button>
+              <button class="card-menu-item flag-open" data-flag-id="${clean(String(row.id))}" type="button">Report</button>
+            </div>
           </div>
         </li>
       `;
@@ -416,6 +419,7 @@ function renderList(rows) {
     });
   });
 
+  // Media gallery buttons (still inline, not in menu)
   [...document.querySelectorAll(".media-open")].forEach((btn) => {
     btn.addEventListener("click", (ev) => {
       ev.stopPropagation();
@@ -426,41 +430,63 @@ function renderList(rows) {
     });
   });
 
-  [...document.querySelectorAll(".share-open")].forEach((btn) => {
+  // 3-dot menu toggle
+  [...document.querySelectorAll(".card-dots-btn")].forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const id = btn.dataset.dotsId;
+      const menu = document.querySelector(`.card-menu[data-menu-id="${CSS.escape(id)}"]`);
+      if (!menu) return;
+      const isOpen = !menu.classList.contains("hidden");
+      document.querySelectorAll(".card-menu:not(.hidden)").forEach((m) => m.classList.add("hidden"));
+      if (!isOpen) menu.classList.remove("hidden");
+    });
+  });
+
+  // Card menu item handlers
+  [...document.querySelectorAll(".card-menu-item.share-open")].forEach((btn) => {
     btn.addEventListener("click", async (ev) => {
       ev.stopPropagation();
+      closeAllCardMenus();
       const row = rows.find((x) => String(x.id) === btn.dataset.shareId);
       if (!row) return;
       await shareListing(row);
     });
   });
 
-  [...document.querySelectorAll(".contact-open")].forEach((btn) => {
+  [...document.querySelectorAll(".card-menu-item.contact-open")].forEach((btn) => {
     btn.addEventListener("click", async (ev) => {
       ev.stopPropagation();
+      closeAllCardMenus();
       const row = rows.find((x) => String(x.id) === btn.dataset.contactId);
       if (!row) return;
       await contactListing(row);
     });
   });
 
-  [...document.querySelectorAll(".resolve-open")].forEach((btn) => {
+  [...document.querySelectorAll(".card-menu-item.resolve-open")].forEach((btn) => {
     btn.addEventListener("click", async (ev) => {
       ev.stopPropagation();
+      closeAllCardMenus();
       const row = rows.find((x) => String(x.id) === btn.dataset.resolveId);
       if (!row) return;
       await markResolved(row);
     });
   });
 
-  [...document.querySelectorAll(".flag-open")].forEach((btn) => {
+  [...document.querySelectorAll(".card-menu-item.flag-open")].forEach((btn) => {
     btn.addEventListener("click", async (ev) => {
       ev.stopPropagation();
+      closeAllCardMenus();
       const row = rows.find((x) => String(x.id) === btn.dataset.flagId);
       if (!row) return;
       openReport(row);
     });
   });
+}
+
+function closeAllCardMenus() {
+  document.querySelectorAll(".card-menu:not(.hidden)").forEach((m) => m.classList.add("hidden"));
 }
 
 function focusListCard(id) {
@@ -502,8 +528,7 @@ function setSortChipState() {
 }
 
 function setBrandTitle() {
-  const mode = state.feedType === "found" ? "Found" : "Lost";
-  els.brandTitle.textContent = `MK Find · ${mode}`;
+  els.brandTitle.textContent = "MK Lost and Found";
 }
 
 function closeControlPanels() {
