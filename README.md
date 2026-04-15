@@ -4,10 +4,14 @@ Minimal lost-and-found web app for Milton Keynes.
 
 ## 1) Supabase
 
-Create table:
+Run this in Supabase SQL editor (single script, project-unique names):
 
 ```sql
-create table public.reports (
+begin;
+
+create extension if not exists pgcrypto with schema extensions;
+
+create table if not exists public.mk_find_hubwwdbecarttljomhpn_reports (
   id uuid primary key default gen_random_uuid(),
   kind text not null check (kind in ('item', 'pet', 'person')),
   title text not null,
@@ -16,49 +20,94 @@ create table public.reports (
   lng double precision not null,
   seen_at timestamptz not null default now(),
   address text,
-  media_urls text[] default '{}'
+  media_urls text[] not null default '{}'
 );
-```
 
-Enable policies (public read + anon insert):
+alter table public.mk_find_hubwwdbecarttljomhpn_reports
+  add column if not exists address text;
 
-```sql
-alter table public.reports enable row level security;
+alter table public.mk_find_hubwwdbecarttljomhpn_reports
+  add column if not exists media_urls text[] not null default '{}';
 
-create policy "public read reports"
-on public.reports
-for select
-to anon
-using (true);
+alter table public.mk_find_hubwwdbecarttljomhpn_reports enable row level security;
 
-create policy "public add reports"
-on public.reports
-for insert
-to anon
-with check (true);
-```
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'mk_find_hubwwdbecarttljomhpn_reports'
+      and policyname = 'mk_find_hubwwdbecarttljomhpn_reports_public_read'
+  ) then
+    create policy "mk_find_hubwwdbecarttljomhpn_reports_public_read"
+      on public.mk_find_hubwwdbecarttljomhpn_reports
+      for select
+      to anon
+      using (true);
+  end if;
 
-Create public storage bucket for photos/videos:
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'mk_find_hubwwdbecarttljomhpn_reports'
+      and policyname = 'mk_find_hubwwdbecarttljomhpn_reports_public_insert'
+  ) then
+    create policy "mk_find_hubwwdbecarttljomhpn_reports_public_insert"
+      on public.mk_find_hubwwdbecarttljomhpn_reports
+      for insert
+      to anon
+      with check (true);
+  end if;
+end $$;
 
-```sql
 insert into storage.buckets (id, name, public)
-values ('report-media', 'report-media', true)
+values (
+  'mk-find-hubwwdbecarttljomhpn-media',
+  'mk-find-hubwwdbecarttljomhpn-media',
+  true
+)
 on conflict (id) do nothing;
 
-create policy "public upload report media"
-on storage.objects
-for insert
-to anon
-with check (bucket_id = 'report-media');
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'mk_find_hubwwdbecarttljomhpn_media_public_upload'
+  ) then
+    create policy "mk_find_hubwwdbecarttljomhpn_media_public_upload"
+      on storage.objects
+      for insert
+      to anon
+      with check (bucket_id = 'mk-find-hubwwdbecarttljomhpn-media');
+  end if;
 
-create policy "public read report media"
-on storage.objects
-for select
-to anon
-using (bucket_id = 'report-media');
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'mk_find_hubwwdbecarttljomhpn_media_public_read'
+  ) then
+    create policy "mk_find_hubwwdbecarttljomhpn_media_public_read"
+      on storage.objects
+      for select
+      to anon
+      using (bucket_id = 'mk-find-hubwwdbecarttljomhpn-media');
+  end if;
+end $$;
+
+commit;
 ```
 
-Then set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `app.js`.
+`app.js` is already configured for:
+- URL: `https://hubwwdbecarttljomhpn.supabase.co`
+- table: `mk_find_hubwwdbecarttljomhpn_reports`
+- bucket: `mk-find-hubwwdbecarttljomhpn-media`
 
 ## 2) GitHub Pages
 

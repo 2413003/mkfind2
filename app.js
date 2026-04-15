@@ -1,7 +1,8 @@
-const SUPABASE_URL = "https://YOUR_PROJECT.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR_ANON_KEY";
-const TABLE_NAME = "reports";
-const STORAGE_BUCKET = "report-media";
+const SUPABASE_URL = "https://hubwwdbecarttljomhpn.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1Ynd3ZGJlY2FydHRsam9taHBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MDg2MTMsImV4cCI6MjA4ODk4NDYxM30.ZQxtB_VobUOt28wIKUPvKsrfx1QhB-cOhgFMzaCmxSo";
+const TABLE_NAME = "mk_find_hubwwdbecarttljomhpn_reports";
+const STORAGE_BUCKET = "mk-find-hubwwdbecarttljomhpn-media";
 const MK_CENTER = [52.0406, -0.7594];
 
 const FALLBACK = [
