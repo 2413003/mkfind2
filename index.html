@@ -112,6 +112,16 @@
 
           <input id="titleInput" class="field-input" type="text" maxlength="90" placeholder="Title" required />
           <input id="detailInput" class="field-input" type="text" maxlength="180" placeholder="Details" />
+          <div class="field-row tight-3">
+            <input id="contactNameInput" class="field-input" type="text" maxlength="60" placeholder="Contact name" />
+            <select id="contactMethodInput" class="field-input">
+              <option value="phone">Phone</option>
+              <option value="email">Email</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="other">Other</option>
+            </select>
+            <input id="contactValueInput" class="field-input" type="text" maxlength="120" placeholder="Contact" />
+          </div>
 
           <label class="field-label" for="lastSeenInput">Last seen</label>
           <div class="field-row tight">
@@ -145,6 +155,26 @@
         <div id="galleryCount" class="gallery-count">1 / 1</div>
       </div>
     </section>
+    <section id="reportModal" class="compose-modal hidden" aria-hidden="true">
+      <div id="reportBackdrop" class="compose-backdrop"></div>
+      <form id="reportForm" class="compose-card report-card" novalidate>
+        <div class="compose-head">
+          <h3>Report listing</h3>
+          <button id="closeReportBtn" class="icon-btn ghost" type="button" aria-label="Close">✕</button>
+        </div>
+        <div class="compose-grid">
+          <div class="chip-row">
+            <button class="chip report-reason-chip active" data-reason="spam" type="button">Spam</button>
+            <button class="chip report-reason-chip" data-reason="fake" type="button">Fake</button>
+            <button class="chip report-reason-chip" data-reason="abuse" type="button">Abuse</button>
+            <button class="chip report-reason-chip" data-reason="other" type="button">Other</button>
+          </div>
+          <input id="reportDetailInput" class="field-input" type="text" maxlength="220" placeholder="Details (optional)" />
+        </div>
+        <button id="submitReportBtn" class="save-btn" type="submit">Send</button>
+      </form>
+    </section>
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

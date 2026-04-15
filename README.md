@@ -24,6 +24,9 @@ create table if not exists public.mk_find_hubwwdbecarttljomhpn_reports (
   resolved_at timestamptz,
   short_code text,
   address text,
+  contact_name text,
+  contact_method text,
+  contact_value text,
   media_urls text[] not null default '{}'
 );
 
@@ -44,6 +47,15 @@ alter table public.mk_find_hubwwdbecarttljomhpn_reports
 
 alter table public.mk_find_hubwwdbecarttljomhpn_reports
   add column if not exists short_code text;
+
+alter table public.mk_find_hubwwdbecarttljomhpn_reports
+  add column if not exists contact_name text;
+
+alter table public.mk_find_hubwwdbecarttljomhpn_reports
+  add column if not exists contact_method text;
+
+alter table public.mk_find_hubwwdbecarttljomhpn_reports
+  add column if not exists contact_value text;
 
 do $$
 begin

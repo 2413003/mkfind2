@@ -424,6 +424,12 @@ body {
   grid-template-columns: 1fr auto;
 }
 
+.field-row.tight-3 {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(105px, auto) minmax(140px, 1fr);
+  gap: 8px;
+}
+
 .field-label {
   font-size: 0.74rem;
   color: var(--muted);
@@ -493,6 +499,28 @@ body {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+}
+
+.report-card {
+  width: min(520px, calc(100vw - 24px));
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 7000;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  color: #fff;
+  background: rgba(16, 22, 36, 0.88);
+  box-shadow: 0 12px 24px rgba(16, 22, 36, 0.28);
+}
+
+.toast.hidden {
+  display: none;
 }
 
 .gallery-modal {

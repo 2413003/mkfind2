@@ -71,6 +71,10 @@ const state = {
     pickerMap: null,
     pickerMarker: null,
   },
+  reportDraft: {
+    listingId: null,
+    reason: "spam",
+  },
 };
 
 const map = L.map("map", {
@@ -148,6 +152,16 @@ const els = {
   pickerMap: document.getElementById("pickerMap"),
   pickedMeta: document.getElementById("pickedMeta"),
   saveComposeBtn: document.getElementById("saveComposeBtn"),
+  contactNameInput: document.getElementById("contactNameInput"),
+  contactMethodInput: document.getElementById("contactMethodInput"),
+  contactValueInput: document.getElementById("contactValueInput"),
+  reportModal: document.getElementById("reportModal"),
+  reportBackdrop: document.getElementById("reportBackdrop"),
+  reportForm: document.getElementById("reportForm"),
+  closeReportBtn: document.getElementById("closeReportBtn"),
+  reportReasonChips: [...document.querySelectorAll(".report-reason-chip")],
+  reportDetailInput: document.getElementById("reportDetailInput"),
+  toast: document.getElementById("toast"),
 };
 
 els.radius.value = String(state.radiusKm);
@@ -225,7 +239,7 @@ async function loadReports() {
 
   const { data, error } = await supabase
     .from(TABLE_NAME)
-    .select("id, kind, post_type, status, title, detail, lat, lng, seen_at, media_urls, short_code")
+    .select("*")
     .order("seen_at", { ascending: false })
     .limit(300);
 
@@ -358,6 +372,7 @@ function renderList(rows) {
     .map((row) => {
       const ago = timeAgo(row.seen_at);
       const media = getMediaUrls(row);
+      const contactText = contactLabel(row);
       const mediaBlock = media.length
         ? `<div class="result-media">${mediaTag(media[0])}</div><button class="media-open" data-media-id="${clean(String(row.id))}" type="button">Media</button>`
         : "";
@@ -372,9 +387,10 @@ function renderList(rows) {
             <span class="badge">${clean(row.status || "open")}</span>
           </div>
           <div class="title">${clean(row.title)}</div>
-          <div class="meta">${clean(row.detail || "")} · ${ago}</div>
+          <div class="meta">${clean(row.detail || "")} · ${ago}${contactText ? ` · ${clean(contactText)}` : ""}</div>
           ${mediaBlock}
           <div class="field-row">
+            <button class="media-open contact-open" data-contact-id="${clean(String(row.id))}" type="button">Contact</button>
             <button class="media-open share-open" data-share-id="${clean(String(row.id))}" type="button">Share</button>
             <button class="media-open resolve-open" data-resolve-id="${clean(String(row.id))}" type="button">Resolve</button>
             <button class="media-open flag-open" data-flag-id="${clean(String(row.id))}" type="button">Report</button>
@@ -416,6 +432,15 @@ function renderList(rows) {
     });
   });
 
+  [...document.querySelectorAll(".contact-open")].forEach((btn) => {
+    btn.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      const row = rows.find((x) => String(x.id) === btn.dataset.contactId);
+      if (!row) return;
+      await contactListing(row);
+    });
+  });
+
   [...document.querySelectorAll(".resolve-open")].forEach((btn) => {
     btn.addEventListener("click", async (ev) => {
       ev.stopPropagation();
@@ -430,7 +455,7 @@ function renderList(rows) {
       ev.stopPropagation();
       const row = rows.find((x) => String(x.id) === btn.dataset.flagId);
       if (!row) return;
-      await reportListing(row);
+      openReport(row);
     });
   });
 }
@@ -551,10 +576,11 @@ function iconFor(kind) {
 
 function popupMarkup(row) {
   const media = getMediaUrls(row);
+  const contactText = contactLabel(row);
   const mediaBtn = media.length
     ? `<br><button type="button" class="media-open popup-media-open" data-popup-media-id="${clean(String(row.id))}">Media</button>`
     : "";
-  return `<strong>${clean(row.title)}</strong><br>${clean(row.detail || "")}<br>${clean(row.post_type || "lost")} · ${clean(row.status || "open")}<br>${row.distanceKm.toFixed(1)} km${mediaBtn}<br><button type="button" class="media-open popup-share-open" data-popup-share-id="${clean(String(row.id))}">Share</button> <button type="button" class="media-open popup-resolve-open" data-popup-resolve-id="${clean(String(row.id))}">Resolve</button> <button type="button" class="media-open popup-flag-open" data-popup-flag-id="${clean(String(row.id))}">Report</button>`;
+  return `<strong>${clean(row.title)}</strong><br>${clean(row.detail || "")}${contactText ? `<br>${clean(contactText)}` : ""}<br>${clean(row.post_type || "lost")} · ${clean(row.status || "open")}<br>${row.distanceKm.toFixed(1)} km${mediaBtn}<br><button type="button" class="media-open popup-contact-open" data-popup-contact-id="${clean(String(row.id))}">Contact</button> <button type="button" class="media-open popup-share-open" data-popup-share-id="${clean(String(row.id))}">Share</button> <button type="button" class="media-open popup-resolve-open" data-popup-resolve-id="${clean(String(row.id))}">Resolve</button> <button type="button" class="media-open popup-flag-open" data-popup-flag-id="${clean(String(row.id))}">Report</button>`;
 }
 
 function getMediaUrls(row) {
@@ -635,6 +661,15 @@ function makeShortCode() {
   return Math.random().toString(36).slice(2, 8);
 }
 
+function showToast(message) {
+  els.toast.textContent = message;
+  els.toast.classList.remove("hidden");
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => {
+    els.toast.classList.add("hidden");
+  }, 1800);
+}
+
 function mapSnapshotUrl(row) {
   const lat = Number(row.lat).toFixed(5);
   const lng = Number(row.lng).toFixed(5);
@@ -663,50 +698,100 @@ async function ensureShortCode(row) {
 }
 
 async function shareListing(row) {
+  let link = `${window.location.origin}${window.location.pathname}?id=${encodeURIComponent(row.id)}`;
   const code = await ensureShortCode(row);
-  const link = `${window.location.origin}${window.location.pathname}?l=${code}`;
+  if (code) link = `${window.location.origin}${window.location.pathname}?l=${code}`;
   const snapshot = mapSnapshotUrl(row);
   const text = `${row.title} · ${row.post_type || "lost"} · ${row.status || "open"}\n${link}\n${snapshot}`;
   if (navigator.share) {
     try {
       await navigator.share({ title: "MK Find", text, url: link });
+      showToast("Shared");
       return;
     } catch (_err) {
-      // ignored
+      // fallback below
     }
   }
   await navigator.clipboard.writeText(text);
-  alert("Share copied");
+  showToast("Share copied");
+}
+
+function contactLabel(row) {
+  const method = row.contact_method || "contact";
+  const value = row.contact_value || row.contact || "";
+  if (!value) return "";
+  return `${method}: ${value}`;
+}
+
+async function contactListing(row) {
+  const value = (row.contact_value || row.contact || "").trim();
+  const method = (row.contact_method || "").toLowerCase();
+  if (!value) {
+    showToast("No contact details");
+    return;
+  }
+  if (method === "email") {
+    window.location.href = `mailto:${value}`;
+    return;
+  }
+  if (method === "phone" || method === "whatsapp") {
+    const cleaned = value.replace(/[^\d+]/g, "");
+    window.location.href = method === "whatsapp" ? `https://wa.me/${cleaned.replace("+", "")}` : `tel:${cleaned}`;
+    return;
+  }
+  await navigator.clipboard.writeText(value);
+  showToast("Contact copied");
 }
 
 async function markResolved(row) {
   if ((row.status || "open") === "resolved") return;
+  const ok = window.confirm("Mark this listing as resolved?");
+  if (!ok) return;
   if (!supabase) {
     row.status = "resolved";
     paint();
+    showToast("Marked resolved");
     return;
   }
   const { error } = await supabase
     .from(TABLE_NAME)
     .update({ status: "resolved", resolved_at: new Date().toISOString() })
     .eq("id", row.id);
-  if (error) return;
-  await loadReports();
-  paint();
-}
-
-async function reportListing(row) {
-  const reason = window.prompt("Reason");
-  if (!reason) return;
-  if (!supabase) {
-    alert("Reported");
+  if (error) {
+    row.status = "resolved";
+    paint();
+    showToast("Resolved locally");
     return;
   }
-  await supabase.from(LISTING_REPORTS_TABLE).insert({
-    listing_id: row.id,
-    reason: reason.trim().slice(0, 500),
+  await loadReports();
+  paint();
+  showToast("Marked resolved");
+}
+
+function openReport(row) {
+  state.reportDraft.listingId = row.id;
+  state.reportDraft.reason = "spam";
+  els.reportDetailInput.value = "";
+  els.reportReasonChips.forEach((chip) => chip.classList.toggle("active", chip.dataset.reason === "spam"));
+  els.reportModal.classList.remove("hidden");
+  els.reportModal.setAttribute("aria-hidden", "false");
+}
+
+function closeReport() {
+  els.reportModal.classList.add("hidden");
+  els.reportModal.setAttribute("aria-hidden", "true");
+}
+
+async function reportListing(listingId, reason, detail) {
+  if (!supabase) {
+    showToast("Reported");
+    return;
+  }
+  const { error } = await supabase.from(LISTING_REPORTS_TABLE).insert({
+    listing_id: listingId,
+    reason: `${reason}${detail ? `: ${detail}` : ""}`.trim().slice(0, 500),
   });
-  alert("Reported");
+  showToast(error ? "Report failed" : "Reported");
 }
 
 function clean(text) {
@@ -881,6 +966,9 @@ async function createReport(payload) {
       seen_at: payload.seen_at,
       address: payload.address || "",
       media_urls: payload.media_urls || [],
+      contact_name: payload.contact_name || "",
+      contact_method: payload.contact_method || "",
+      contact_value: payload.contact_value || "",
     };
     state.rows = [local, ...state.rows];
     paint();
@@ -892,6 +980,8 @@ async function createReport(payload) {
     // Compatibility fallback if optional columns are not added yet.
     const fallbackPayload = {
       kind: payload.kind,
+      post_type: payload.post_type || "lost",
+      status: payload.status || "open",
       title: payload.title,
       detail: payload.detail,
       lat: payload.lat,
@@ -1016,6 +1106,8 @@ els.galleryStage.addEventListener("touchcancel", () => {
 els.addBtn.addEventListener("click", openCompose);
 els.modalBackdrop.addEventListener("click", closeCompose);
 els.closeComposeBtn.addEventListener("click", closeCompose);
+els.reportBackdrop.addEventListener("click", closeReport);
+els.closeReportBtn.addEventListener("click", closeReport);
 
 els.kindChips.forEach((chip) => {
   chip.addEventListener("click", () => {
@@ -1028,6 +1120,13 @@ els.postChips.forEach((chip) => {
   chip.addEventListener("click", () => {
     state.compose.postType = chip.dataset.postType;
     setComposeTypeUI();
+  });
+});
+
+els.reportReasonChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    state.reportDraft.reason = chip.dataset.reason;
+    els.reportReasonChips.forEach((x) => x.classList.toggle("active", x === chip));
   });
 });
 
@@ -1074,6 +1173,9 @@ els.composeForm.addEventListener("submit", async (ev) => {
       seen_at: els.lastSeenInput.value ? new Date(els.lastSeenInput.value).toISOString() : new Date().toISOString(),
       address: state.compose.address || els.addressInput.value.trim() || null,
       media_urls: mediaUrls,
+      contact_name: els.contactNameInput.value.trim() || null,
+      contact_method: els.contactMethodInput.value || null,
+      contact_value: els.contactValueInput.value.trim() || null,
     };
 
     const ok = await createReport(payload);
@@ -1083,6 +1185,14 @@ els.composeForm.addEventListener("submit", async (ev) => {
     els.saveComposeBtn.disabled = false;
     els.saveComposeBtn.textContent = initialSaveText;
   }
+});
+
+els.reportForm.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  if (!state.reportDraft.listingId) return;
+  const detail = els.reportDetailInput.value.trim();
+  await reportListing(state.reportDraft.listingId, state.reportDraft.reason, detail);
+  closeReport();
 });
 
 map.on("popupopen", () => {
@@ -1104,6 +1214,15 @@ map.on("popupopen", () => {
     });
   }
 
+  const contactBtn = document.querySelector(".popup-contact-open");
+  if (contactBtn) {
+    contactBtn.addEventListener("click", async () => {
+      const row = state.rows.find((x) => String(x.id) === String(contactBtn.dataset.popupContactId));
+      if (!row) return;
+      await contactListing(row);
+    });
+  }
+
   const resolveBtn = document.querySelector(".popup-resolve-open");
   if (resolveBtn) {
     resolveBtn.addEventListener("click", async () => {
@@ -1115,16 +1234,17 @@ map.on("popupopen", () => {
 
   const flagBtn = document.querySelector(".popup-flag-open");
   if (flagBtn) {
-    flagBtn.addEventListener("click", async () => {
+    flagBtn.addEventListener("click", () => {
       const row = state.rows.find((x) => String(x.id) === String(flagBtn.dataset.popupFlagId));
       if (!row) return;
-      await reportListing(row);
+      openReport(row);
     });
   }
 });
 
 document.addEventListener("keydown", (ev) => {
   if (ev.key === "Escape") closeControlPanels();
+  if (ev.key === "Escape") closeReport();
   if (els.galleryModal.classList.contains("hidden")) return;
   if (ev.key === "Escape") closeGallery();
   if (ev.key === "ArrowLeft") stepGallery(-1);
