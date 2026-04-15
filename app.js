@@ -389,10 +389,6 @@ function renderList(rows) {
             <span class="tag">${iconFor(row.kind)} ${clean(row.kind)}</span>
             <span class="badge">${row.distanceKm.toFixed(1)} km</span>
           </div>
-          <div class="row">
-            <span class="badge">${clean(row.post_type || "lost")}</span>
-            <span class="badge">${clean(row.status || "open")}</span>
-          </div>
           <div class="title">${clean(row.title)}</div>
           <div class="meta">${clean(row.detail || "")} · ${ago}${contactText ? ` · ${clean(contactText)}` : ""}</div>
           ${mediaBlock}
@@ -587,7 +583,8 @@ function popupMarkup(row) {
   const mediaBtn = media.length
     ? `<br><button type="button" class="media-open popup-media-open" data-popup-media-id="${clean(String(row.id))}">Media</button>`
     : "";
-  return `<strong>${clean(row.title)}</strong><br>${clean(row.detail || "")}${contactText ? `<br>${clean(contactText)}` : ""}<br>${clean(row.post_type || "lost")} · ${clean(row.status || "open")}<br>${row.distanceKm.toFixed(1)} km${mediaBtn}<br><button type="button" class="media-open popup-contact-open" data-popup-contact-id="${clean(String(row.id))}">Contact</button> <button type="button" class="media-open popup-share-open" data-popup-share-id="${clean(String(row.id))}">Share</button> <button type="button" class="media-open popup-resolve-open" data-popup-resolve-id="${clean(String(row.id))}">Found</button> <button type="button" class="media-open popup-flag-open" data-popup-flag-id="${clean(String(row.id))}">Report</button>`;
+  const gmapsUrl = `https://www.google.com/maps?q=${Number(row.lat).toFixed(6)},${Number(row.lng).toFixed(6)}`;
+  return `<strong>${clean(row.title)}</strong><br>${clean(row.detail || "")}${contactText ? `<br>${clean(contactText)}` : ""}<br>${clean(row.post_type || "lost")} · ${clean(row.status || "open")}<br>${row.distanceKm.toFixed(1)} km${mediaBtn}<br><button type="button" class="media-open popup-contact-open" data-popup-contact-id="${clean(String(row.id))}">Contact</button> <button type="button" class="media-open popup-share-open" data-popup-share-id="${clean(String(row.id))}">Share</button> <button type="button" class="media-open popup-resolve-open" data-popup-resolve-id="${clean(String(row.id))}">Found</button> <button type="button" class="media-open popup-flag-open" data-popup-flag-id="${clean(String(row.id))}">Report</button> <a href="${gmapsUrl}" target="_blank" rel="noopener noreferrer" class="media-open" style="display:inline-block;text-decoration:none;">Maps</a>`;
 }
 
 function getMediaUrls(row) {
