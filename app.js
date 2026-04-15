@@ -43,6 +43,13 @@ const state = {
   selectedId: null,
   knownIds: new Set(),
   hasSupabase: SUPABASE_URL.includes(".supabase.co") && !SUPABASE_ANON_KEY.startsWith("YOUR_"),
+  gallery: {
+    items: [],
+    index: 0,
+    touchStartX: 0,
+    touchStartY: 0,
+    touchActive: false,
+  },
   compose: {
     kind: "item",
     lat: null,
@@ -97,6 +104,13 @@ const els = {
   addBtn: document.getElementById("addBtn"),
   refreshBtn: document.getElementById("refreshBtn"),
   notifyBtn: document.getElementById("notifyBtn"),
+  galleryModal: document.getElementById("galleryModal"),
+  galleryBackdrop: document.getElementById("galleryBackdrop"),
+  galleryCloseBtn: document.getElementById("galleryCloseBtn"),
+  galleryPrevBtn: document.getElementById("galleryPrevBtn"),
+  galleryNextBtn: document.getElementById("galleryNextBtn"),
+  galleryStage: document.getElementById("galleryStage"),
+  galleryCount: document.getElementById("galleryCount"),
   composeModal: document.getElementById("composeModal"),
   modalBackdrop: document.getElementById("modalBackdrop"),
   composeForm: document.getElementById("composeForm"),
@@ -171,7 +185,7 @@ async function loadReports() {
 
   const { data, error } = await supabase
     .from(TABLE_NAME)
-    .select("id, kind, title, detail, lat, lng, seen_at")
+    .select("id, kind, title, detail, lat, lng, seen_at, media_urls")
     .order("seen_at", { ascending: false })
     .limit(300);
 
@@ -244,7 +258,7 @@ function renderMarkers(rows) {
     }
 
     marker.bindPopup(
-      `<strong>${clean(row.title)}</strong><br>${clean(row.detail || "")}<br>${row.distanceKm.toFixed(1)} km`
+      popupMarkup(row)
     );
   });
 }
@@ -295,6 +309,10 @@ function renderList(rows) {
   els.results.innerHTML = rows
     .map((row) => {
       const ago = timeAgo(row.seen_at);
+      const media = getMediaUrls(row);
+      const mediaBlock = media.length
+        ? `<div class="result-media">${mediaTag(media[0])}</div><button class="media-open" data-media-id="${clean(String(row.id))}" type="button">Media</button>`
+        : "";
       return `
         <li class="result" data-id="${clean(String(row.id))}">
           <div class="row">
@@ -303,6 +321,7 @@ function renderList(rows) {
           </div>
           <div class="title">${clean(row.title)}</div>
           <div class="meta">${clean(row.detail || "")} · ${ago}</div>
+          ${mediaBlock}
         </li>
       `;
     })
@@ -318,6 +337,16 @@ function renderList(rows) {
       const marker = state.markers.get(id);
       if (marker) marker.openPopup();
       notifyIfEnabled(row);
+    });
+  });
+
+  [...document.querySelectorAll(".media-open")].forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const id = btn.dataset.mediaId;
+      const row = rows.find((x) => String(x.id) === id);
+      if (!row) return;
+      openGallery(getMediaUrls(row), 0);
     });
   });
 }
@@ -404,6 +433,88 @@ function iconFor(kind) {
   if (kind === "pet") return "🐾";
   if (kind === "person") return "🧍";
   return "🎒";
+}
+
+function popupMarkup(row) {
+  const media = getMediaUrls(row);
+  const mediaBtn = media.length
+    ? `<br><button type="button" class="media-open popup-media-open" data-popup-media-id="${clean(String(row.id))}">Media</button>`
+    : "";
+  return `<strong>${clean(row.title)}</strong><br>${clean(row.detail || "")}<br>${row.distanceKm.toFixed(1)} km${mediaBtn}`;
+}
+
+function getMediaUrls(row) {
+  if (Array.isArray(row.media_urls)) return row.media_urls.filter(Boolean);
+  if (!row.media_urls) return [];
+  if (typeof row.media_urls === "string") {
+    try {
+      const parsed = JSON.parse(row.media_urls);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch (_err) {
+      return [];
+    }
+  }
+  return [];
+}
+
+function mediaTag(url) {
+  const lower = String(url).toLowerCase();
+  const isVideo = /\.(mp4|mov|webm|ogg)(\?|$)/.test(lower);
+  return isVideo ? `<video src="${clean(url)}" muted playsinline></video>` : `<img src="${clean(url)}" alt="">`;
+}
+
+function openGallery(items, index = 0) {
+  if (!items.length) return;
+  state.gallery.items = items;
+  state.gallery.index = Math.max(0, Math.min(index, items.length - 1));
+  els.galleryModal.classList.remove("hidden");
+  els.galleryModal.setAttribute("aria-hidden", "false");
+  renderGallery();
+}
+
+function closeGallery() {
+  els.galleryModal.classList.add("hidden");
+  els.galleryModal.setAttribute("aria-hidden", "true");
+  els.galleryStage.innerHTML = "";
+}
+
+function stepGallery(dir) {
+  if (!state.gallery.items.length) return;
+  const max = state.gallery.items.length - 1;
+  state.gallery.index = (state.gallery.index + dir + state.gallery.items.length) % (max + 1);
+  renderGallery();
+}
+
+function renderGallery() {
+  const items = state.gallery.items;
+  if (!items.length) return;
+  const url = items[state.gallery.index];
+  els.galleryStage.innerHTML = mediaTag(url);
+  els.galleryCount.textContent = `${state.gallery.index + 1} / ${items.length}`;
+}
+
+function onGalleryTouchStart(ev) {
+  const touch = ev.changedTouches?.[0];
+  if (!touch) return;
+  state.gallery.touchStartX = touch.clientX;
+  state.gallery.touchStartY = touch.clientY;
+  state.gallery.touchActive = true;
+}
+
+function onGalleryTouchEnd(ev) {
+  if (!state.gallery.touchActive) return;
+  state.gallery.touchActive = false;
+  const touch = ev.changedTouches?.[0];
+  if (!touch) return;
+
+  const dx = touch.clientX - state.gallery.touchStartX;
+  const dy = touch.clientY - state.gallery.touchStartY;
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+
+  if (absX < 42 || absX < absY * 1.2) return;
+  if (dx < 0) stepGallery(1);
+  else stepGallery(-1);
 }
 
 function clean(text) {
@@ -636,6 +747,15 @@ els.refreshBtn.addEventListener("click", async () => {
 });
 
 els.notifyBtn.addEventListener("click", enableNotifications);
+els.galleryBackdrop.addEventListener("click", closeGallery);
+els.galleryCloseBtn.addEventListener("click", closeGallery);
+els.galleryPrevBtn.addEventListener("click", () => stepGallery(-1));
+els.galleryNextBtn.addEventListener("click", () => stepGallery(1));
+els.galleryStage.addEventListener("touchstart", onGalleryTouchStart, { passive: true });
+els.galleryStage.addEventListener("touchend", onGalleryTouchEnd, { passive: true });
+els.galleryStage.addEventListener("touchcancel", () => {
+  state.gallery.touchActive = false;
+});
 els.addBtn.addEventListener("click", openCompose);
 els.modalBackdrop.addEventListener("click", closeCompose);
 els.closeComposeBtn.addEventListener("click", closeCompose);
@@ -697,4 +817,21 @@ els.composeForm.addEventListener("submit", async (ev) => {
     els.saveComposeBtn.disabled = false;
     els.saveComposeBtn.textContent = initialSaveText;
   }
+});
+
+map.on("popupopen", () => {
+  const btn = document.querySelector(".popup-media-open");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    const row = state.rows.find((x) => String(x.id) === String(btn.dataset.popupMediaId));
+    if (!row) return;
+    openGallery(getMediaUrls(row), 0);
+  });
+});
+
+document.addEventListener("keydown", (ev) => {
+  if (els.galleryModal.classList.contains("hidden")) return;
+  if (ev.key === "Escape") closeGallery();
+  if (ev.key === "ArrowLeft") stepGallery(-1);
+  if (ev.key === "ArrowRight") stepGallery(1);
 });

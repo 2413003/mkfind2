@@ -357,6 +357,12 @@ body {
   grid-template-columns: 1fr auto;
 }
 
+.field-label {
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
 .field-input {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -457,6 +463,8 @@ body {
   display: grid;
   place-items: center;
   background: #0e1420;
+  touch-action: pan-y;
+  user-select: none;
 }
 
 .gallery-stage img,
