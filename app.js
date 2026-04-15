@@ -112,8 +112,6 @@ const els = {
   results: document.getElementById("results"),
   radius: document.getElementById("radius"),
   radiusValue: document.getElementById("radiusValue"),
-  filtersSummary: document.getElementById("filtersSummary"),
-  sortSummary: document.getElementById("sortSummary"),
   filtersPanel: document.getElementById("filtersPanel"),
   sortPanel: document.getElementById("sortPanel"),
   controlsBackdrop: document.getElementById("controlsBackdrop"),
@@ -158,8 +156,6 @@ setPostFilterChipState();
 setChipState();
 setStatusChipState();
 setSortChipState();
-setFilterSummary();
-setSortSummary();
 setBrandTitle();
 els.notifyBtn.classList.toggle("active", localStorage.getItem("mkfind.notifications") === "on");
 
@@ -475,16 +471,6 @@ function setSortChipState() {
   els.sortChips.forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.sort === state.sort);
   });
-}
-
-function setFilterSummary() {
-  const kindLabel = state.kind === "all" ? "All" : state.kind[0].toUpperCase() + state.kind.slice(1);
-  const statusLabel = state.status === "all" ? "All status" : state.status[0].toUpperCase() + state.status.slice(1);
-  els.filtersSummary.textContent = `${kindLabel} · ${statusLabel} · ${state.radiusKm} km`;
-}
-
-function setSortSummary() {
-  els.sortSummary.textContent = state.sort === "latest" ? "Latest" : "Nearest";
 }
 
 function setBrandTitle() {
@@ -940,7 +926,6 @@ els.radius.addEventListener("input", (e) => {
   state.radiusKm = Number(e.target.value);
   localStorage.setItem("mkfind.radius", String(state.radiusKm));
   setRadiusLabel();
-  setFilterSummary();
   paint();
 });
 
@@ -950,7 +935,6 @@ els.chips.forEach((chip) => {
     state.kind = chip.dataset.type;
     localStorage.setItem("mkfind.kind", state.kind);
     setChipState();
-    setFilterSummary();
     paint();
   });
 });
@@ -970,7 +954,6 @@ els.statusChips.forEach((chip) => {
     state.status = chip.dataset.status;
     localStorage.setItem("mkfind.status", state.status);
     setStatusChipState();
-    setFilterSummary();
     paint();
   });
 });
@@ -980,7 +963,6 @@ els.sortChips.forEach((chip) => {
     state.sort = chip.dataset.sort;
     localStorage.setItem("mkfind.sort", state.sort);
     setSortChipState();
-    setSortSummary();
     paint();
   });
 });

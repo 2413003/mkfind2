@@ -1,9 +1,3 @@
-next instruction:
-i meant filters & sorting hidden until someone clicks on filter / sort. don't show them until someone clicks to see them
-
-
-
-
 # MK Find
 
 Minimal lost-and-found web app for Milton Keynes.
