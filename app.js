@@ -3,12 +3,15 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1Ynd3ZGJlY2FydHRsam9taHBuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MDg2MTMsImV4cCI6MjA4ODk4NDYxM30.ZQxtB_VobUOt28wIKUPvKsrfx1QhB-cOhgFMzaCmxSo";
 const TABLE_NAME = "mk_find_hubwwdbecarttljomhpn_reports";
 const STORAGE_BUCKET = "mk-find-hubwwdbecarttljomhpn-media";
+const LISTING_REPORTS_TABLE = "mk_find_hubwwdbecarttljomhpn_listing_reports";
 const MK_CENTER = [52.0406, -0.7594];
 
 const FALLBACK = [
   {
     id: "m1",
     kind: "pet",
+    post_type: "lost",
+    status: "open",
     title: "Black cat",
     detail: "Green collar",
     lat: 52.042,
@@ -18,6 +21,8 @@ const FALLBACK = [
   {
     id: "m2",
     kind: "item",
+    post_type: "lost",
+    status: "open",
     title: "Blue backpack",
     detail: "Campbell Park",
     lat: 52.037,
@@ -27,6 +32,8 @@ const FALLBACK = [
   {
     id: "m3",
     kind: "person",
+    post_type: "lost",
+    status: "open",
     title: "Teen boy",
     detail: "Red jacket",
     lat: 52.052,
@@ -39,6 +46,7 @@ const state = {
   userLoc: null,
   radiusKm: Number(localStorage.getItem("mkfind.radius") || 8),
   kind: localStorage.getItem("mkfind.kind") || "all",
+  status: localStorage.getItem("mkfind.status") || "open",
   rows: [],
   markers: new Map(),
   selectedId: null,
@@ -53,6 +61,7 @@ const state = {
   },
   compose: {
     kind: "item",
+    postType: "lost",
     lat: null,
     lng: null,
     address: "",
@@ -101,6 +110,7 @@ const els = {
   radius: document.getElementById("radius"),
   radiusValue: document.getElementById("radiusValue"),
   chips: [...document.querySelectorAll(".chip")],
+  statusChips: [...document.querySelectorAll(".status-chip")],
   centerBtn: document.getElementById("centerBtn"),
   addBtn: document.getElementById("addBtn"),
   refreshBtn: document.getElementById("refreshBtn"),
@@ -117,6 +127,7 @@ const els = {
   composeForm: document.getElementById("composeForm"),
   closeComposeBtn: document.getElementById("closeComposeBtn"),
   kindChips: [...document.querySelectorAll(".kind-chip")],
+  postChips: [...document.querySelectorAll(".post-chip")],
   titleInput: document.getElementById("titleInput"),
   detailInput: document.getElementById("detailInput"),
   lastSeenInput: document.getElementById("lastSeenInput"),
@@ -132,6 +143,7 @@ const els = {
 els.radius.value = String(state.radiusKm);
 setRadiusLabel();
 setChipState();
+setStatusChipState();
 els.notifyBtn.classList.toggle("active", localStorage.getItem("mkfind.notifications") === "on");
 
 const supabase = state.hasSupabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -142,7 +154,21 @@ async function boot() {
   await locateUser();
   await loadReports();
   paint();
+  applyIncomingLink();
   connectRealtime();
+}
+
+function applyIncomingLink() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("l");
+  const id = params.get("id");
+  let row = null;
+  if (code) row = state.rows.find((x) => String(x.short_code || "") === code) || null;
+  if (!row && id) row = state.rows.find((x) => String(x.id) === id) || null;
+  if (!row) return;
+  map.flyTo([row.lat, row.lng], 15, { duration: 0.5 });
+  state.selectedId = String(row.id);
+  focusListCard(String(row.id));
 }
 
 async function locateUser() {
@@ -186,7 +212,7 @@ async function loadReports() {
 
   const { data, error } = await supabase
     .from(TABLE_NAME)
-    .select("id, kind, title, detail, lat, lng, seen_at, media_urls")
+    .select("id, kind, post_type, status, title, detail, lat, lng, seen_at, media_urls, short_code")
     .order("seen_at", { ascending: false })
     .limit(300);
 
@@ -222,6 +248,7 @@ function filteredRows() {
   const [lat, lng] = state.userLoc || MK_CENTER;
   return state.rows
     .filter((row) => state.kind === "all" || row.kind === state.kind)
+    .filter((row) => (state.status === "all" ? true : (row.status || "open") === state.status))
     .map((row) => ({
       ...row,
       distanceKm: haversine(lat, lng, Number(row.lat), Number(row.lng)),
@@ -320,9 +347,18 @@ function renderList(rows) {
             <span class="tag">${iconFor(row.kind)} ${clean(row.kind)}</span>
             <span class="badge">${row.distanceKm.toFixed(1)} km</span>
           </div>
+          <div class="row">
+            <span class="badge">${clean(row.post_type || "lost")}</span>
+            <span class="badge">${clean(row.status || "open")}</span>
+          </div>
           <div class="title">${clean(row.title)}</div>
           <div class="meta">${clean(row.detail || "")} · ${ago}</div>
           ${mediaBlock}
+          <div class="field-row">
+            <button class="media-open share-open" data-share-id="${clean(String(row.id))}" type="button">Share</button>
+            <button class="media-open resolve-open" data-resolve-id="${clean(String(row.id))}" type="button">Resolve</button>
+            <button class="media-open flag-open" data-flag-id="${clean(String(row.id))}" type="button">Report</button>
+          </div>
         </li>
       `;
     })
@@ -350,6 +386,33 @@ function renderList(rows) {
       openGallery(getMediaUrls(row), 0);
     });
   });
+
+  [...document.querySelectorAll(".share-open")].forEach((btn) => {
+    btn.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      const row = rows.find((x) => String(x.id) === btn.dataset.shareId);
+      if (!row) return;
+      await shareListing(row);
+    });
+  });
+
+  [...document.querySelectorAll(".resolve-open")].forEach((btn) => {
+    btn.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      const row = rows.find((x) => String(x.id) === btn.dataset.resolveId);
+      if (!row) return;
+      await markResolved(row);
+    });
+  });
+
+  [...document.querySelectorAll(".flag-open")].forEach((btn) => {
+    btn.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      const row = rows.find((x) => String(x.id) === btn.dataset.flagId);
+      if (!row) return;
+      await reportListing(row);
+    });
+  });
 }
 
 function focusListCard(id) {
@@ -367,7 +430,14 @@ function setRadiusLabel() {
 
 function setChipState() {
   els.chips.forEach((chip) => {
+    if (!chip.dataset.type) return;
     chip.classList.toggle("active", chip.dataset.type === state.kind);
+  });
+}
+
+function setStatusChipState() {
+  els.statusChips.forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.status === state.status);
   });
 }
 
@@ -441,7 +511,7 @@ function popupMarkup(row) {
   const mediaBtn = media.length
     ? `<br><button type="button" class="media-open popup-media-open" data-popup-media-id="${clean(String(row.id))}">Media</button>`
     : "";
-  return `<strong>${clean(row.title)}</strong><br>${clean(row.detail || "")}<br>${row.distanceKm.toFixed(1)} km${mediaBtn}`;
+  return `<strong>${clean(row.title)}</strong><br>${clean(row.detail || "")}<br>${clean(row.post_type || "lost")} · ${clean(row.status || "open")}<br>${row.distanceKm.toFixed(1)} km${mediaBtn}<br><button type="button" class="media-open popup-share-open" data-popup-share-id="${clean(String(row.id))}">Share</button> <button type="button" class="media-open popup-resolve-open" data-popup-resolve-id="${clean(String(row.id))}">Resolve</button> <button type="button" class="media-open popup-flag-open" data-popup-flag-id="${clean(String(row.id))}">Report</button>`;
 }
 
 function getMediaUrls(row) {
@@ -518,6 +588,84 @@ function onGalleryTouchEnd(ev) {
   else stepGallery(-1);
 }
 
+function makeShortCode() {
+  return Math.random().toString(36).slice(2, 8);
+}
+
+function mapSnapshotUrl(row) {
+  const lat = Number(row.lat).toFixed(5);
+  const lng = Number(row.lng).toFixed(5);
+  return `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=900x500&markers=${lat},${lng},red-pushpin`;
+}
+
+async function ensureShortCode(row) {
+  if (row.short_code) return row.short_code;
+  const localKey = `mkfind.short.${row.id}`;
+  const localExisting = localStorage.getItem(localKey);
+  if (localExisting) return localExisting;
+
+  const code = makeShortCode();
+  if (!supabase) {
+    localStorage.setItem(localKey, code);
+    return code;
+  }
+
+  const { error } = await supabase.from(TABLE_NAME).update({ short_code: code }).eq("id", row.id);
+  if (error) {
+    localStorage.setItem(localKey, code);
+    return code;
+  }
+  row.short_code = code;
+  return code;
+}
+
+async function shareListing(row) {
+  const code = await ensureShortCode(row);
+  const link = `${window.location.origin}${window.location.pathname}?l=${code}`;
+  const snapshot = mapSnapshotUrl(row);
+  const text = `${row.title} · ${row.post_type || "lost"} · ${row.status || "open"}\n${link}\n${snapshot}`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "MK Find", text, url: link });
+      return;
+    } catch (_err) {
+      // ignored
+    }
+  }
+  await navigator.clipboard.writeText(text);
+  alert("Share copied");
+}
+
+async function markResolved(row) {
+  if ((row.status || "open") === "resolved") return;
+  if (!supabase) {
+    row.status = "resolved";
+    paint();
+    return;
+  }
+  const { error } = await supabase
+    .from(TABLE_NAME)
+    .update({ status: "resolved", resolved_at: new Date().toISOString() })
+    .eq("id", row.id);
+  if (error) return;
+  await loadReports();
+  paint();
+}
+
+async function reportListing(row) {
+  const reason = window.prompt("Reason");
+  if (!reason) return;
+  if (!supabase) {
+    alert("Reported");
+    return;
+  }
+  await supabase.from(LISTING_REPORTS_TABLE).insert({
+    listing_id: row.id,
+    reason: reason.trim().slice(0, 500),
+  });
+  alert("Reported");
+}
+
 function clean(text) {
   return String(text).replace(/[&<>"']/g, (ch) => {
     const mapChars = {
@@ -540,6 +688,7 @@ function toInputDate(isoDate) {
 function openCompose() {
   const loc = state.userLoc || MK_CENTER;
   state.compose.kind = "item";
+  state.compose.postType = "lost";
   state.compose.lat = Number(loc[0]);
   state.compose.lng = Number(loc[1]);
   state.compose.address = "";
@@ -550,6 +699,7 @@ function openCompose() {
   els.addressInput.value = "";
   els.mediaPreview.innerHTML = "";
   setComposeKindUI();
+  setComposeTypeUI();
   updatePickedMeta();
   els.composeModal.classList.remove("hidden");
   els.composeModal.setAttribute("aria-hidden", "false");
@@ -584,6 +734,12 @@ function closeCompose() {
 function setComposeKindUI() {
   els.kindChips.forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.kind === state.compose.kind);
+  });
+}
+
+function setComposeTypeUI() {
+  els.postChips.forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.postType === state.compose.postType);
   });
 }
 
@@ -673,6 +829,8 @@ async function createReport(payload) {
     const local = {
       id: `local-${Date.now()}`,
       kind: payload.kind,
+      post_type: payload.post_type || "lost",
+      status: payload.status || "open",
       title: payload.title,
       detail: payload.detail,
       lat: payload.lat,
@@ -729,10 +887,20 @@ els.radius.addEventListener("input", (e) => {
 });
 
 els.chips.forEach((chip) => {
+  if (!chip.dataset.type) return;
   chip.addEventListener("click", () => {
     state.kind = chip.dataset.type;
     localStorage.setItem("mkfind.kind", state.kind);
     setChipState();
+    paint();
+  });
+});
+
+els.statusChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    state.status = chip.dataset.status;
+    localStorage.setItem("mkfind.status", state.status);
+    setStatusChipState();
     paint();
   });
 });
@@ -765,6 +933,13 @@ els.kindChips.forEach((chip) => {
   chip.addEventListener("click", () => {
     state.compose.kind = chip.dataset.kind;
     setComposeKindUI();
+  });
+});
+
+els.postChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    state.compose.postType = chip.dataset.postType;
+    setComposeTypeUI();
   });
 });
 
@@ -802,6 +977,8 @@ els.composeForm.addEventListener("submit", async (ev) => {
     const mediaUrls = await uploadMedia(state.compose.files);
     const payload = {
       kind: state.compose.kind,
+      post_type: state.compose.postType,
+      status: "open",
       title,
       detail: els.detailInput.value.trim() || null,
       lat: state.compose.lat,
@@ -821,13 +998,41 @@ els.composeForm.addEventListener("submit", async (ev) => {
 });
 
 map.on("popupopen", () => {
-  const btn = document.querySelector(".popup-media-open");
-  if (!btn) return;
-  btn.addEventListener("click", () => {
-    const row = state.rows.find((x) => String(x.id) === String(btn.dataset.popupMediaId));
-    if (!row) return;
-    openGallery(getMediaUrls(row), 0);
-  });
+  const mediaBtn = document.querySelector(".popup-media-open");
+  if (mediaBtn) {
+    mediaBtn.addEventListener("click", () => {
+      const row = state.rows.find((x) => String(x.id) === String(mediaBtn.dataset.popupMediaId));
+      if (!row) return;
+      openGallery(getMediaUrls(row), 0);
+    });
+  }
+
+  const shareBtn = document.querySelector(".popup-share-open");
+  if (shareBtn) {
+    shareBtn.addEventListener("click", async () => {
+      const row = state.rows.find((x) => String(x.id) === String(shareBtn.dataset.popupShareId));
+      if (!row) return;
+      await shareListing(row);
+    });
+  }
+
+  const resolveBtn = document.querySelector(".popup-resolve-open");
+  if (resolveBtn) {
+    resolveBtn.addEventListener("click", async () => {
+      const row = state.rows.find((x) => String(x.id) === String(resolveBtn.dataset.popupResolveId));
+      if (!row) return;
+      await markResolved(row);
+    });
+  }
+
+  const flagBtn = document.querySelector(".popup-flag-open");
+  if (flagBtn) {
+    flagBtn.addEventListener("click", async () => {
+      const row = state.rows.find((x) => String(x.id) === String(flagBtn.dataset.popupFlagId));
+      if (!row) return;
+      await reportListing(row);
+    });
+  }
 });
 
 document.addEventListener("keydown", (ev) => {
