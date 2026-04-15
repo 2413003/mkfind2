@@ -1,6 +1,7 @@
 const SUPABASE_URL = "https://YOUR_PROJECT.supabase.co";
 const SUPABASE_ANON_KEY = "YOUR_ANON_KEY";
 const TABLE_NAME = "reports";
+const STORAGE_BUCKET = "report-media";
 const MK_CENTER = [52.0406, -0.7594];
 
 const FALLBACK = [
@@ -42,6 +43,15 @@ const state = {
   selectedId: null,
   knownIds: new Set(),
   hasSupabase: SUPABASE_URL.includes(".supabase.co") && !SUPABASE_ANON_KEY.startsWith("YOUR_"),
+  compose: {
+    kind: "item",
+    lat: null,
+    lng: null,
+    address: "",
+    files: [],
+    pickerMap: null,
+    pickerMarker: null,
+  },
 };
 
 const map = L.map("map", {
@@ -84,8 +94,24 @@ const els = {
   radiusValue: document.getElementById("radiusValue"),
   chips: [...document.querySelectorAll(".chip")],
   centerBtn: document.getElementById("centerBtn"),
+  addBtn: document.getElementById("addBtn"),
   refreshBtn: document.getElementById("refreshBtn"),
   notifyBtn: document.getElementById("notifyBtn"),
+  composeModal: document.getElementById("composeModal"),
+  modalBackdrop: document.getElementById("modalBackdrop"),
+  composeForm: document.getElementById("composeForm"),
+  closeComposeBtn: document.getElementById("closeComposeBtn"),
+  kindChips: [...document.querySelectorAll(".kind-chip")],
+  titleInput: document.getElementById("titleInput"),
+  detailInput: document.getElementById("detailInput"),
+  lastSeenInput: document.getElementById("lastSeenInput"),
+  mediaInput: document.getElementById("mediaInput"),
+  mediaPreview: document.getElementById("mediaPreview"),
+  addressInput: document.getElementById("addressInput"),
+  findAddressBtn: document.getElementById("findAddressBtn"),
+  pickerMap: document.getElementById("pickerMap"),
+  pickedMeta: document.getElementById("pickedMeta"),
+  saveComposeBtn: document.getElementById("saveComposeBtn"),
 };
 
 els.radius.value = String(state.radiusKm);
@@ -224,31 +250,40 @@ function renderMarkers(rows) {
 }
 
 function createReportIcon(kind) {
-  if (kind === "pet") {
-    return L.divIcon({
-      className: "report-pin-shell",
-      html: '<span class="report-pin report-pin-pet">🐾</span>',
-      iconSize: [34, 34],
-      iconAnchor: [17, 17],
-      popupAnchor: [0, -14],
-    });
-  }
-  if (kind === "person") {
-    return L.divIcon({
-      className: "report-pin-shell",
-      html: '<span class="report-pin report-pin-person">🧍</span>',
-      iconSize: [34, 34],
-      iconAnchor: [17, 17],
-      popupAnchor: [0, -14],
-    });
-  }
+  const configByKind = {
+    item: { color: "#2b6be8", glyph: "item" },
+    pet: { color: "#00a66a", glyph: "pet" },
+    person: { color: "#f08a24", glyph: "person" },
+  };
+  const conf = configByKind[kind] || configByKind.item;
+  const glyph = glyphPath(conf.glyph);
+
+  const html = `
+    <span class="report-pin-shell">
+      <svg class="report-pin-svg" viewBox="0 0 36 36" aria-hidden="true">
+        <circle cx="18" cy="18" r="15" fill="${conf.color}" stroke="#ffffff" stroke-width="2"></circle>
+        <path d="${glyph}" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+    </span>
+  `;
+
   return L.divIcon({
     className: "report-pin-shell",
-    html: '<span class="report-pin report-pin-item">🎒</span>',
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-    popupAnchor: [0, -14],
+    html,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -16],
   });
+}
+
+function glyphPath(kind) {
+  if (kind === "pet") {
+    return "M12.2 19.3c1.6 0 2.9-1.3 2.9-2.9S13.8 13.5 12.2 13.5s-2.9 1.3-2.9 2.9 1.3 2.9 2.9 2.9zm11.6 0c1.6 0 2.9-1.3 2.9-2.9s-1.3-2.9-2.9-2.9-2.9 1.3-2.9 2.9 1.3 2.9 2.9 2.9zM18 13.2c1.4 0 2.5-1.1 2.5-2.5S19.4 8.2 18 8.2s-2.5 1.1-2.5 2.5 1.1 2.5 2.5 2.5zm0 14.6c-3.5 0-6.4-2-6.4-4.5 0-2.1 2.3-3.8 4.1-2.3 1 .8 1.5 1.2 2.3 1.2s1.3-.4 2.3-1.2c1.8-1.5 4.1.2 4.1 2.3 0 2.5-2.9 4.5-6.4 4.5z";
+  }
+  if (kind === "person") {
+    return "M18 11.2a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6zm0 8.6c2.7 0 5 1.7 5.8 4.1.2.8-.4 1.5-1.2 1.5H13.4c-.8 0-1.4-.7-1.2-1.5.8-2.4 3.1-4.1 5.8-4.1z";
+  }
+  return "M13.3 11.2h9.4c.8 0 1.4.6 1.4 1.4v10.8c0 .8-.6 1.4-1.4 1.4h-9.4c-.8 0-1.4-.6-1.4-1.4V12.6c0-.8.6-1.4 1.4-1.4zm2.2 3.2h5m-5 3h5m-5 3h3.8";
 }
 
 function renderList(rows) {
@@ -384,6 +419,180 @@ function clean(text) {
   });
 }
 
+function toInputDate(isoDate) {
+  const date = isoDate ? new Date(isoDate) : new Date();
+  const tzOffset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+}
+
+function openCompose() {
+  const loc = state.userLoc || MK_CENTER;
+  state.compose.kind = "item";
+  state.compose.lat = Number(loc[0]);
+  state.compose.lng = Number(loc[1]);
+  state.compose.address = "";
+  state.compose.files = [];
+
+  els.composeForm.reset();
+  els.lastSeenInput.value = toInputDate();
+  els.addressInput.value = "";
+  els.mediaPreview.innerHTML = "";
+  setComposeKindUI();
+  updatePickedMeta();
+  els.composeModal.classList.remove("hidden");
+  els.composeModal.setAttribute("aria-hidden", "false");
+
+  if (!state.compose.pickerMap) {
+    state.compose.pickerMap = L.map("pickerMap", {
+      zoomControl: false,
+      attributionControl: false,
+    }).setView(loc, 14);
+    L.control.zoom({ position: "bottomright" }).addTo(state.compose.pickerMap);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      maxZoom: 19,
+      subdomains: "abcd",
+    }).addTo(state.compose.pickerMap);
+
+    state.compose.pickerMap.on("click", (ev) => {
+      setComposePoint(ev.latlng.lat, ev.latlng.lng, true);
+    });
+  } else {
+    state.compose.pickerMap.setView(loc, 14);
+  }
+  setTimeout(() => state.compose.pickerMap?.invalidateSize(), 40);
+
+  setComposePoint(state.compose.lat, state.compose.lng, false);
+}
+
+function closeCompose() {
+  els.composeModal.classList.add("hidden");
+  els.composeModal.setAttribute("aria-hidden", "true");
+}
+
+function setComposeKindUI() {
+  els.kindChips.forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.kind === state.compose.kind);
+  });
+}
+
+function setComposePoint(lat, lng, animate) {
+  state.compose.lat = Number(lat);
+  state.compose.lng = Number(lng);
+  const point = [state.compose.lat, state.compose.lng];
+
+  if (!state.compose.pickerMarker) {
+    state.compose.pickerMarker = L.circleMarker(point, {
+      radius: 8,
+      fillColor: "#1a73e8",
+      fillOpacity: 0.95,
+      color: "#fff",
+      weight: 2,
+    }).addTo(state.compose.pickerMap);
+  } else {
+    state.compose.pickerMarker.setLatLng(point);
+  }
+
+  if (animate) {
+    state.compose.pickerMap.flyTo(point, Math.max(state.compose.pickerMap.getZoom(), 15), {
+      duration: 0.4,
+    });
+  }
+  updatePickedMeta();
+}
+
+function updatePickedMeta() {
+  if (state.compose.lat == null || state.compose.lng == null) {
+    els.pickedMeta.textContent = "Tap map to set last seen";
+    return;
+  }
+  els.pickedMeta.textContent = `${state.compose.lat.toFixed(5)}, ${state.compose.lng.toFixed(5)}`;
+}
+
+function renderMediaPreview(files) {
+  if (!files.length) {
+    els.mediaPreview.innerHTML = "";
+    return;
+  }
+  const nodes = files
+    .slice(0, 8)
+    .map((file) => {
+      const isVideo = file.type.startsWith("video/");
+      const url = URL.createObjectURL(file);
+      return `<div class="media-chip">${isVideo ? `<video src="${url}" muted></video>` : `<img src="${url}" alt="">`}</div>`;
+    })
+    .join("");
+  els.mediaPreview.innerHTML = nodes;
+}
+
+async function geocodeAddress(query) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query + ", Milton Keynes")}`;
+  const res = await fetch(url, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error("Lookup failed");
+  const data = await res.json();
+  if (!Array.isArray(data) || !data[0]) throw new Error("No result");
+  return {
+    lat: Number(data[0].lat),
+    lng: Number(data[0].lon),
+    label: data[0].display_name || query,
+  };
+}
+
+async function uploadMedia(files) {
+  if (!supabase || !files.length) return [];
+  const urls = [];
+  for (const file of files) {
+    const ext = file.name.includes(".") ? file.name.split(".").pop() : "bin";
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+    if (error) continue;
+    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+    if (data?.publicUrl) urls.push(data.publicUrl);
+  }
+  return urls;
+}
+
+async function createReport(payload) {
+  if (!supabase) {
+    const local = {
+      id: `local-${Date.now()}`,
+      kind: payload.kind,
+      title: payload.title,
+      detail: payload.detail,
+      lat: payload.lat,
+      lng: payload.lng,
+      seen_at: payload.seen_at,
+      address: payload.address || "",
+      media_urls: payload.media_urls || [],
+    };
+    state.rows = [local, ...state.rows];
+    paint();
+    return true;
+  }
+
+  const { error } = await supabase.from(TABLE_NAME).insert(payload);
+  if (error) {
+    // Compatibility fallback if optional columns are not added yet.
+    const fallbackPayload = {
+      kind: payload.kind,
+      title: payload.title,
+      detail: payload.detail,
+      lat: payload.lat,
+      lng: payload.lng,
+      seen_at: payload.seen_at,
+    };
+    const { error: fallbackError } = await supabase.from(TABLE_NAME).insert(fallbackPayload);
+    if (fallbackError) return false;
+  }
+  await loadReports();
+  paint();
+  return true;
+}
+
 async function enableNotifications() {
   if (!("Notification" in window)) return;
   const permission = await Notification.requestPermission();
@@ -427,3 +636,65 @@ els.refreshBtn.addEventListener("click", async () => {
 });
 
 els.notifyBtn.addEventListener("click", enableNotifications);
+els.addBtn.addEventListener("click", openCompose);
+els.modalBackdrop.addEventListener("click", closeCompose);
+els.closeComposeBtn.addEventListener("click", closeCompose);
+
+els.kindChips.forEach((chip) => {
+  chip.addEventListener("click", () => {
+    state.compose.kind = chip.dataset.kind;
+    setComposeKindUI();
+  });
+});
+
+els.mediaInput.addEventListener("change", () => {
+  state.compose.files = [...(els.mediaInput.files || [])].slice(0, 8);
+  renderMediaPreview(state.compose.files);
+});
+
+els.findAddressBtn.addEventListener("click", async () => {
+  const query = els.addressInput.value.trim();
+  if (!query) return;
+  const oldText = els.findAddressBtn.textContent;
+  els.findAddressBtn.textContent = "...";
+  try {
+    const result = await geocodeAddress(query);
+    state.compose.address = result.label;
+    setComposePoint(result.lat, result.lng, true);
+  } catch (_err) {
+    els.pickedMeta.textContent = "Address not found";
+  } finally {
+    els.findAddressBtn.textContent = oldText;
+  }
+});
+
+els.composeForm.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const title = els.titleInput.value.trim();
+  if (!title || state.compose.lat == null || state.compose.lng == null) return;
+
+  els.saveComposeBtn.disabled = true;
+  const initialSaveText = els.saveComposeBtn.textContent;
+  els.saveComposeBtn.textContent = "...";
+
+  try {
+    const mediaUrls = await uploadMedia(state.compose.files);
+    const payload = {
+      kind: state.compose.kind,
+      title,
+      detail: els.detailInput.value.trim() || null,
+      lat: state.compose.lat,
+      lng: state.compose.lng,
+      seen_at: els.lastSeenInput.value ? new Date(els.lastSeenInput.value).toISOString() : new Date().toISOString(),
+      address: state.compose.address || els.addressInput.value.trim() || null,
+      media_urls: mediaUrls,
+    };
+
+    const ok = await createReport(payload);
+    if (ok) closeCompose();
+    else els.pickedMeta.textContent = "Save failed";
+  } finally {
+    els.saveComposeBtn.disabled = false;
+    els.saveComposeBtn.textContent = initialSaveText;
+  }
+});

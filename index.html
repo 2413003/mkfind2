@@ -57,10 +57,64 @@
         </aside>
       </section>
 
-      <button id="centerBtn" class="fab" type="button" aria-label="Locate">
-        ◎
-      </button>
+      <div class="fab-stack">
+        <button id="centerBtn" class="fab fab-ghost" type="button" aria-label="Locate">
+          ◎
+        </button>
+        <button id="addBtn" class="fab" type="button" aria-label="Add listing">
+          +
+        </button>
+      </div>
     </main>
+
+    <section id="composeModal" class="compose-modal hidden" aria-hidden="true">
+      <div id="modalBackdrop" class="compose-backdrop"></div>
+      <form id="composeForm" class="compose-card" novalidate>
+        <div class="compose-head">
+          <h3>New</h3>
+          <button id="closeComposeBtn" class="icon-btn ghost" type="button" aria-label="Close">✕</button>
+        </div>
+
+        <div class="compose-grid">
+          <div class="field-row">
+            <button class="chip kind-chip active" data-kind="item" type="button">Item</button>
+            <button class="chip kind-chip" data-kind="pet" type="button">Pet</button>
+            <button class="chip kind-chip" data-kind="person" type="button">Person</button>
+          </div>
+
+          <input id="titleInput" class="field-input" type="text" maxlength="90" placeholder="Title" required />
+          <input id="detailInput" class="field-input" type="text" maxlength="180" placeholder="Details" />
+
+          <div class="field-row tight">
+            <input id="lastSeenInput" class="field-input" type="datetime-local" />
+            <label class="media-upload" for="mediaInput">Media</label>
+            <input id="mediaInput" type="file" accept="image/*,video/*" multiple hidden />
+          </div>
+
+          <div id="mediaPreview" class="media-preview"></div>
+
+          <div class="field-row tight">
+            <input id="addressInput" class="field-input" type="text" placeholder="Address" />
+            <button id="findAddressBtn" class="chip" type="button">Find</button>
+          </div>
+
+          <div id="pickerMap" class="picker-map"></div>
+          <p id="pickedMeta" class="picked-meta">Tap map to set last seen</p>
+        </div>
+
+        <button id="saveComposeBtn" class="save-btn" type="submit">Save</button>
+      </form>
+    </section>
+    <section id="galleryModal" class="gallery-modal hidden" aria-hidden="true">
+      <div id="galleryBackdrop" class="gallery-backdrop"></div>
+      <div class="gallery-shell">
+        <button id="galleryCloseBtn" class="icon-btn gallery-close" type="button" aria-label="Close">✕</button>
+        <button id="galleryPrevBtn" class="gallery-nav gallery-prev" type="button" aria-label="Previous">‹</button>
+        <div id="galleryStage" class="gallery-stage"></div>
+        <button id="galleryNextBtn" class="gallery-nav gallery-next" type="button" aria-label="Next">›</button>
+        <div id="galleryCount" class="gallery-count">1 / 1</div>
+      </div>
+    </section>
 
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

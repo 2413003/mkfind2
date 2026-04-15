@@ -14,11 +14,13 @@ create table public.reports (
   detail text,
   lat double precision not null,
   lng double precision not null,
-  seen_at timestamptz not null default now()
+  seen_at timestamptz not null default now(),
+  address text,
+  media_urls text[] default '{}'
 );
 ```
 
-Enable read policy (public):
+Enable policies (public read + anon insert):
 
 ```sql
 alter table public.reports enable row level security;
@@ -28,6 +30,32 @@ on public.reports
 for select
 to anon
 using (true);
+
+create policy "public add reports"
+on public.reports
+for insert
+to anon
+with check (true);
+```
+
+Create public storage bucket for photos/videos:
+
+```sql
+insert into storage.buckets (id, name, public)
+values ('report-media', 'report-media', true)
+on conflict (id) do nothing;
+
+create policy "public upload report media"
+on storage.objects
+for insert
+to anon
+with check (bucket_id = 'report-media');
+
+create policy "public read report media"
+on storage.objects
+for select
+to anon
+using (bucket_id = 'report-media');
 ```
 
 Then set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `app.js`.
